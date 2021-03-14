@@ -51,7 +51,7 @@ func (p *PoolUpstream) GetNextUpstream() *Upstream {
 			if i != n {
 				atomic.StoreUint64(&p.Last, uint64(x))
 			}
-			return p.Pool[i]
+			return p.Pool[x]
 		}
 	}
 	return nil

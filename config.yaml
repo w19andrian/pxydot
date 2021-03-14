@@ -1,4 +1,4 @@
-listen_addr: 0.0.0.0
+listen_addr: 0.0.0.0:53
 tcp_enabled: true
 udp_enabled: true
 upstream_port: 853
