@@ -1,5 +1,8 @@
-listen_addr: 
+listen_addr: 0.0.0.0
 tcp_enabled: true
 udp_enabled: true
-upstream_server: 1.1.1.1
 upstream_port: 853
+upstream_servers:
+  - 1.1.1.1
+  - 8.8.8.8
+  - 8.8.4.4
