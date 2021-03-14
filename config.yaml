@@ -1,0 +1,5 @@
+listen_addr: 
+tcp_enabled: true
+udp_enabled: true
+upstream_server: 1.1.1.1
+upstream_port: 853
