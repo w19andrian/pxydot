@@ -1,33 +1,59 @@
 package app
 
 import (
+	"fmt"
 	"log"
+	"strings"
 
 	"github.com/miekg/dns"
-	"github.com/w19andrian/pxydot/config"
 )
 
-var tsvr *dns.Server
-var usvr *dns.Server
-
-func RunServer(c config.Config) {
-
-	if !c.TCP_Enabled && !c.UDP_Enabled {
-		log.Fatalf("Need at least one enabled protocol. Exitting...")
-	}
-	if c.TCP_Enabled {
-		tsvr = &dns.Server{Addr: c.Listen_Addr, Net: "tcp"}
-		go tsvr.ListenAndServe()
-		log.Printf("Listening on %s %s", c.Listen_Addr, "tcp")
-	}
-	if c.UDP_Enabled {
-		usvr = &dns.Server{Addr: c.Listen_Addr, Net: "udp"}
-		go usvr.ListenAndServe()
-		log.Printf("Listening on %s %s", c.Listen_Addr, "udp")
-	}
-	log.Printf("Upstream server: %s:%s", c.Upstream_Server, c.Upstream_Port)
+// type Handler for building query handler that implements dns.HandleFunc
+type Handler struct {
+	client   *dns.Client
+	upstream *PoolUpstream
 }
 
+// RunServer will run the server to listen and serve connections
+func RunServer(svr *dns.Server) error {
+	return svr.ListenAndServe()
+}
+
+// NewHandler creates new handler for dns.HandlerFunc implementation
+// to handle incoming query and forward query
+func NewHandler(client *dns.Client, upst *PoolUpstream) Handler {
+	return Handler{
+		client:   client,
+		upstream: upst,
+	}
+}
+
+// The ServeDNS act as a method to receive question
+// from the client, forwards it to the upstream DNS, and write
+// the answer back to the client
+func (h Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
+	next := h.upstream.GetNextUpstream()
+	addr := next.Addr
+
+	q := ""
+	for _, v := range r.Question {
+		q += strings.Split(v.String(), "\t")[0]
+	}
+	log.Printf("received query: %s", q)
+
+	rHostPort := fmt.Sprintf("%s:%s", addr, "853")
+	resp, _, err := h.client.Exchange(r, rHostPort)
+	if err != nil {
+		log.Printf("Error querying to upstream server: %v\n", err)
+		return
+	}
+	log.Printf("Querying to: %s", addr)
+
+	w.WriteMsg(resp)
+}
+
+// Shutdown checks if the server is active before actually
+// invoking the Shutdown function
 func Shutdown(svr *dns.Server) {
 	if svr == nil {
 		return

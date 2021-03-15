@@ -11,22 +11,65 @@ import (
 	"github.com/w19andrian/pxydot/config"
 )
 
-func Start() {
-	sigsend := make(chan os.Signal, 1)
-	signal.Notify(sigsend, syscall.SIGTERM)
-	signal.Notify(sigsend, syscall.SIGINT)
+var tcp_svr *dns.Server
+var udp_svr *dns.Server
 
+func init() {
+
+	// Initiate configuration file to be loaded
 	config.LoadConfig()
+}
 
-	c := new(dns.Client)
-	c.Net = "tcp-tls"
+func Start() {
 
-	h := app.NewHandler(c, config.AppConfig)
+	// Create channel to accept signal SIGTERM and SIGINT
+	// The app will fall into shutdown sequence if either
+	// one of the signal is received
+	notifSignal := make(chan os.Signal, 1)
+	signal.Notify(notifSignal, syscall.SIGTERM)
+	signal.Notify(notifSignal, syscall.SIGINT)
 
-	app.RunServer(config.AppConfig)
-	dns.Handle(".", h)
+	// Initiate new client
+	client := new(dns.Client)
+	client.Net = "tcp-tls"
 
-	sigrec := <-sigsend
-	log.Printf("Received signal %s", sigrec.String())
+	// Initiate upstream servers and preparing them for
+	// load balancing
+	lb := app.InitUpstreamServers(config.AppConfig)
+	handler := app.NewHandler(client, lb)
+
+	// Running the servers
+	func(c *config.Config) {
+		if !c.TCP_Enabled && !c.UDP_Enabled {
+			log.Fatal("At least one of the protocol should be enabled (TCP || UDP). Exitting...")
+		}
+		if c.TCP_Enabled {
+			tcp_svr := &dns.Server{Addr: c.Listen_Addr, Net: "tcp"}
+			go app.RunServer(tcp_svr)
+			log.Printf("Server is Running and Listening on TCP/%s", c.Listen_Addr)
+		}
+		if c.UDP_Enabled {
+			svr := &dns.Server{Addr: c.Listen_Addr, Net: "udp"}
+			go app.RunServer(svr)
+			log.Printf("Server is Running and Listening on UDP/%s", c.Listen_Addr)
+		}
+	}(config.AppConfig)
+
+	dns.Handle(".", handler)
+
+	sigrcv := <-notifSignal
+	// Shutdown sequences that will be invoked once SIGTERM or SIGINT
+	// is received on the receiver channel
+	func(c *config.Config) {
+		log.Printf("Received signal %s...", sigrcv.String())
+		if c.TCP_Enabled {
+			log.Print("Shutting down TCP server...")
+			app.Shutdown(tcp_svr)
+		}
+		if c.UDP_Enabled {
+			log.Print("Shutting down UDP server...")
+			app.Shutdown(udp_svr)
+		}
+	}(config.AppConfig)
 
 }

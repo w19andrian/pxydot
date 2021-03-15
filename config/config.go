@@ -7,32 +7,32 @@ import (
 )
 
 type Config struct {
-	Listen_Addr     string `yaml:"listen_addr"`
-	TCP_Enabled     bool   `yaml:"tcp_enabled"`
-	UDP_Enabled     bool   `yaml:"udp_enabled"`
-	Upstream_Server string `yaml:"upstream_server"`
-	Upstream_Port   string `yaml:"upstream_port"`
+	Listen_Addr      string   `yaml:"listen_addr"`
+	TCP_Enabled      bool     `yaml:"tcp_enabled"`
+	UDP_Enabled      bool     `yaml:"udp_enabled"`
+	Upstream_Servers []string `yaml:"upstream_servers"`
 }
 
-var AppConfig Config
+var AppConfig *Config
 
 func LoadConfig() {
 
-	viper.SetDefault("LISTEN_ADDR", ":53")
-	viper.SetDefault("UDP_ENABLED", true)
-	viper.SetDefault("UPSTREAM_SERVER", "1.1.1.1")
+	viper.SetEnvPrefix("PXY")
+
+	viper.SetDefault("listen_addr", ":53")
+	viper.SetDefault("udp_enabled", true)
+	viper.SetDefault("upstream_servers", []string{"1.1.1.1", "8.8.8.8", "8.8.4.4"})
 	viper.AutomaticEnv()
 
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")
 
-	err := viper.ReadInConfig()
-	if err != nil {
-		log.Fatalf("Error parsing configuration file: %s", err)
+	if err := viper.ReadInConfig(); err != nil {
+		log.Printf("Cannot read configuration file: %s", err)
 	}
-	err = viper.Unmarshal(&AppConfig)
-	if err != nil {
+
+	if err := viper.Unmarshal(&AppConfig); err != nil {
 		log.Fatalf("Fatal error unmarshal configuration: %s \n", err)
 	}
 }
