@@ -1,10 +1,11 @@
 ##-----------------------stage-1------------------------##
 
-FROM golang:1.16.2-alpine3.13 AS BUILD
+FROM golang:1.16.2-alpine3.12 AS BUILD
 
 WORKDIR /tmp/pxydot
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o bin/pxydot
+RUN CGO_ENABLED=0 GOOS=linux go build -o bin/pxydot && \
+    chmod +x bin/pxydot
 
 ##-----------------------stage-2------------------------##
 
