@@ -58,17 +58,16 @@ func Start() {
 	dns.Handle(".", handler)
 
 	sigrcv := <-notifSignal
-	log.Printf("Received signal %s", sigrcv.String())
-
 	// Shutdown sequences that will be invoked once SIGTERM or SIGINT
 	// is received on the receiver channel
 	func(c *config.Config) {
+		log.Printf("Received signal %s...", sigrcv.String())
 		if c.TCP_Enabled {
-			log.Println("Shutting down TCP Server")
+			log.Print("Shutting down TCP server...")
 			app.Shutdown(tcp_svr)
 		}
-		if c.TCP_Enabled {
-			log.Println("Shutting down UDP Server")
+		if c.UDP_Enabled {
+			log.Print("Shutting down UDP server...")
 			app.Shutdown(udp_svr)
 		}
 	}(config.AppConfig)
